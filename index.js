@@ -15,16 +15,16 @@ const whitespace = ['␣', '⇥', '⏎']; // Space, Tab, Enter
 
 const charset = [
   ...lowercase,
-  ...uppercase,
-  ...numbers,
-  ...curlies,
-  ...arrows,
-  ...math,
-  ...punctuation,
-  ...quotes,
-  ...pathChars,
-  ...symbols,
-  // ...whitespace,
+  // ...uppercase,
+  // ...numbers,
+  // ...curlies,
+  // ...arrows,
+  // ...math,
+  // ...punctuation,
+  // ...quotes,
+  // ...pathChars,
+  // ...symbols,
+  ...whitespace,
 ];
 
 const keyMap = {
@@ -38,6 +38,8 @@ const keyMap = {
 };
 
 const sequenceLength = 8;
+let scoreRight = 0;
+let scoreWrong = 0;
 
 const getRandomSequence = () =>
   Array.from({ length: sequenceLength }, () =>
@@ -48,9 +50,31 @@ let inputSequence = [];
 let currentTarget = [];
 
 const displayTarget = (target) => {
-  console.log('\nType this sequence:');
-  // console.log('   ' + target.join(' '));
-  console.log(target.join(' '));
+  console.clear();
+  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+C to quit.\n');
+  console.log('right: [' + chalk.green(scoreRight) + '] typos: [' + chalk.red(scoreWrong) + ']\n');
+  console.log(chalk.bold('Target: ') + target.join(' '));
+  console.log(chalk.bold('Input:  '));
+};
+
+const updateInputDisplay = () => {
+  const line = currentTarget.map((char, i) => {
+    const inputChar = inputSequence[i];
+
+    if (inputChar === undefined) {
+      return chalk.gray(char);
+    } else if (inputChar === char) {
+      return chalk.green(inputChar);
+    } else {
+      return chalk.red(inputChar);
+    }
+  });
+
+  // Move cursor up and overwrite input line
+  readline.cursorTo(process.stdout, 0);
+  readline.moveCursor(process.stdout, 0, -1);
+  readline.clearLine(process.stdout, 0);
+  process.stdout.write(chalk.bold('Input:  ') + line.join(' ') + '\n');
 };
 
 const startNewRound = () => {
@@ -59,35 +83,13 @@ const startNewRound = () => {
   displayTarget(currentTarget);
 };
 
-const showDiff = (expected, actual) => {
-  console.log('\nIncorrect. diff:\n');
-
-  const maxLength = Math.max(expected.length, actual.length);
-
-  for (let i = 0; i < maxLength; i++) {
-    const exp = expected[i] ?? '';
-    const act = actual[i] ?? '';
-
-    if (exp === act) {
-      console.log('  ' + chalk.gray(exp));
-    } else {
-      if (exp) console.log(chalk.red(`- ${exp}`));
-      if (act) console.log(chalk.green(`+ ${act}`));
-    }
-  }
-
-  console.log('');
-};
-
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
-
-console.log(' Keyboard Trainer – Type the shown sequence using regular + arrow keys. Press Ctrl+C to quit.');
 
 startNewRound();
 
 process.stdin.on('keypress', (str, key) => {
-  let displayKey = str;
+  let displayKey = keyMap[str] ?? str;
 
   if (key.sequence in keyMap) {
     displayKey = keyMap[key.sequence];
@@ -100,18 +102,16 @@ process.stdin.on('keypress', (str, key) => {
   }
 
   inputSequence.push(displayKey);
-
-  process.stdout.write(displayKey + ' ');
+  updateInputDisplay();
 
   if (inputSequence.length === currentTarget.length) {
-    const correct = inputSequence.every((val, i) => val === currentTarget[i]);
-
-    if (correct) {
-      console.log('\nCorrect!\n');
-    } else {
-      showDiff(currentTarget, inputSequence);
-    }
-
-    setTimeout(startNewRound, 700);
+    currentTarget.forEach((char, i) => {
+      if (inputSequence[i] === char) {
+        scoreRight++;
+      } else {
+        scoreWrong++;
+      }
+    });
+    setTimeout(startNewRound, 1000);
   }
 });
