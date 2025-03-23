@@ -1,17 +1,17 @@
 import readline from 'readline';
 import chalk from 'chalk';
 
-const leftCenterRow = 'asdfg';
-const rightCenterRow = 'hjkl';
-const leftTopRow = 'qwert';
-const rightTopRow = 'yuiop';
-const leftBottomRow = 'zxcvb';
-const rightBottomRow = 'bnm';
+// const leftCenterRow = 'asdfg';
+// const rightCenterRow = 'hjkl';
+// const leftTopRow = 'qwert';
+// const rightTopRow = 'yuiop';
+// const leftBottomRow = 'zxcvb';
+// const rightBottomRow = 'bnm';
 const lowercase = 'abcdefghijklmnopqrstuvwxyz';
 const uppercase = lowercase.toUpperCase();
 const numbers = '1234567890';
-const leftNumbers = '12345';
-const rightNumbers = '67890';
+// const leftNumbers = '12345';
+// const rightNumbers = '67890';
 const curlies = '()[]{}<>';
 const arrows = '↑↓←→';
 const math = '+-*/%=';
@@ -26,23 +26,23 @@ const homeend = ['↖', '↘'];
 const pageUpDown = ['⇞', '⇟'];
 const escape = '⎋';
 
-const charset = [
-  ...lowercase,
-  // ...uppercase,
-  // ...numbers,
-  // ...curlies,
-  // ...arrows,
-  // ...math,
-  // ...punctuation,
-  // ...quotes,
-  // ...pathChars,
-  // ...symbols,
-  // ...whitespace,
-  // backspace,
-  // del,
-  // ...homeend,
-  // ...pageUpDown,
-];
+// const charset = [
+//   ...lowercase,
+//   // ...uppercase,
+//   // ...numbers,
+//   // ...curlies,
+//   // ...arrows,
+//   // ...math,
+//   // ...punctuation,
+//   // ...quotes,
+//   // ...pathChars,
+//   // ...symbols,
+//   // ...whitespace,
+//   // backspace,
+//   // del,
+//   // ...homeend,
+//   // ...pageUpDown,
+// ];
 
 const keyMap = {
   '\x1b[A': '↑',
@@ -68,6 +68,7 @@ let scoreWrong = 0;
 let totalKeystrokes = 0;
 let level = 0;
 let levelStatus = 0;
+let levelBump = 2;
 
 const missedKeys = {}; // { 'a': 2, '↘': 1, ... }
 
@@ -90,13 +91,32 @@ const getCharsetForLevel = (level) => {
   if (level >= 4) {
     chars.push(...curlies);
   }
-
   if (level >= 5) {
     chars.push(...arrows);
   }
-
   if (level >= 6) {
     chars.push(...math);
+  }
+  if (level >= 7) {
+    chars.push(...punctuation);
+  }
+  if (level >= 8) {
+    chars.push(...quotes);
+  }
+  if (level >= 9) {
+    chars.push(...pathChars);
+  }
+  if (level >= 10) {
+    chars.push(...symbols);
+  }
+  if (level >= 11) {
+    chars.push(...whitespace);
+  }
+  if (level >= 12) {
+    chars.push(backspace);
+  }
+  if (level >= 13) {
+    chars.push(del);
   }
 
   return chars;
@@ -105,17 +125,13 @@ const getCharsetForLevel = (level) => {
 let inputSequence = [];
 let currentTarget = [];
 
-const displayTarget = (target) => {
-  console.clear();
-
+const printStatus = () => {
   const accuracy = totalKeystrokes === 0 ? 0 : Math.round((scoreRight / totalKeystrokes) * 100);
 
   const elapsedMs = Date.now() - startTime;
   const elapsedMin = elapsedMs / 1000 / 60;
   const kpm = Math.round(totalKeystrokes / elapsedMin);
 
-  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+C to quit.\n');
-  console.log('---------------------------------------------------------------------------------------');
   console.log(
     'right: [' +
       chalk.green(scoreRight) +
@@ -132,11 +148,22 @@ const displayTarget = (target) => {
       'Level: [' +
       chalk.red(level) +
       '] ' +
-      'Progress: [' +
-      renderLevelBar(levelStatus) +
+      'levelStatus: [' +
+      chalk.blue(levelStatus + '/' + levelBump) +
+      '] ' +
+      'Total Time: [' +
+      chalk.magenta(elapsedMin.toFixed(2) + ' min') +
       '] ' +
       (Object.keys(missedKeys).length > 0 ? ' Missed: [' + getMissedKeysList() + ']' : '')
   );
+};
+
+
+const displayTarget = (target) => {
+  console.clear();
+  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+C to quit.\n');
+  console.log('---------------------------------------------------------------------------------------');
+  printStatus();
   console.log('---------------------------------------------------------------------------------------');
 
   console.log(chalk.bold('Target: ') + target.join(' '));
@@ -195,13 +222,12 @@ process.stdin.on('keypress', (str, key) => {
   let displayKey = keyMap[str] ?? str;
 
   totalKeystrokes++;
-  levelStatus++;
-  level = Math.floor(levelStatus / 100);
 
   if (key.sequence in keyMap) {
     displayKey = keyMap[key.sequence];
   } else if (key.ctrl && key.name === 'c') {
-    console.log('\n👋 Exiting...');
+    console.log('\nExiting...');
+    printStatus();
     process.exit();
   }
 
@@ -219,6 +245,14 @@ process.stdin.on('keypress', (str, key) => {
         missedKeys[char] = (missedKeys[char] || 0) + 1;
       }
     });
+
+    levelStatus++;
+    // Level up if levelStatus exceeds levelBump
+    if (levelStatus >= levelBump) {
+      level++;
+      levelStatus = 0;
+    }
+
     setTimeout(startNewRound, 1000);
   }
 });
