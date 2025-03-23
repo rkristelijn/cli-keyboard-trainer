@@ -11,7 +11,7 @@ const punctuation = ',.;:!?';
 const quotes = '"\'`';
 const pathChars = ['/', '\\', '_', '|', '~'];
 const symbols = '@#$%^&';
-// const whitespace = ' \t\n';
+const whitespace = ['␣', '⇥', '⏎']; // Space, Tab, Enter
 
 const charset = [
   ...lowercase,
@@ -32,6 +32,9 @@ const keyMap = {
   '\x1b[B': '↓',
   '\x1b[D': '←',
   '\x1b[C': '→',
+  ' ': '␣',          // Space
+  '\t': '⇥',         // Tab
+  '\r': '⏎',         // Enter (carriage return)
 };
 
 const sequenceLength = 8;
@@ -45,8 +48,9 @@ let inputSequence = [];
 let currentTarget = [];
 
 const displayTarget = (target) => {
-  console.log('\n Type this sequence (arrows included):');
-  console.log('   ' + target.join(' '));
+  console.log('\nType this sequence:');
+  // console.log('   ' + target.join(' '));
+  console.log(target.join(' '));
 };
 
 const startNewRound = () => {
@@ -56,7 +60,7 @@ const startNewRound = () => {
 };
 
 const showDiff = (expected, actual) => {
-  console.log('\nIncorrect. Git-style diff:\n');
+  console.log('\nIncorrect. diff:\n');
 
   const maxLength = Math.max(expected.length, actual.length);
 
