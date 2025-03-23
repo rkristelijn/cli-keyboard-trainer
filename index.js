@@ -11,7 +11,12 @@ const punctuation = ',.;:!?';
 const quotes = '"\'`';
 const pathChars = ['/', '\\', '_', '|', '~'];
 const symbols = '@#$%^&';
-const whitespace = ['␣', '⇥', '⏎']; // Space, Tab, Enter
+const whitespace = ['␣', '⇥', '⏎' ]; // Space, Tab, Enter
+const backspace = '⌫';
+const del = '⌦';
+const homeend =['↖','↘'];
+const pageUpDown = ['⇞','⇟'];
+
 
 const charset = [
   ...lowercase,
@@ -24,7 +29,11 @@ const charset = [
   // ...quotes,
   // ...pathChars,
   // ...symbols,
-  ...whitespace,
+  // ...whitespace,
+  // backspace,
+  // del,
+  ...homeend,
+  ...pageUpDown,
 ];
 
 const keyMap = {
@@ -35,6 +44,12 @@ const keyMap = {
   ' ': '␣',          // Space
   '\t': '⇥',         // Tab
   '\r': '⏎',         // Enter (carriage return)
+  '\x7f': '⌫',      // Backspace (ASCII 127)
+  '\x1b[3~': '⌦',    // Delete (may vary by terminal)
+  '\x1b[H': '⇱',      // Home
+  '\x1b[F': '⇲',      // End
+  '\x1b[5~': '⇞',     // Page Up
+  '\x1b[6~': '⇟',     // Page Down
 };
 
 const sequenceLength = 8;
