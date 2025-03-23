@@ -24,6 +24,7 @@ const backspace = '⌫';
 const del = '⌦';
 const homeend = ['↖', '↘'];
 const pageUpDown = ['⇞', '⇟'];
+const escape = '⎋';
 
 const charset = [
   ...lowercase,
@@ -57,6 +58,7 @@ const keyMap = {
   '\x1b[F': '⇲', // End
   '\x1b[5~': '⇞', // Page Up
   '\x1b[6~': '⇟', // Page Down
+  '\x1b': '⎋', // Escape
 };
 
 const sequenceLength = 8;
@@ -71,7 +73,34 @@ const missedKeys = {}; // { 'a': 2, '↘': 1, ... }
 
 const startTime = Date.now();
 
-const getRandomSequence = () => Array.from({ length: sequenceLength }, () => charset[Math.floor(Math.random() * charset.length)]);
+const getRandomSequence = () => {
+  const currentCharset = getCharsetForLevel(level + 1); // level is base-0
+  return Array.from({ length: sequenceLength }, () => currentCharset[Math.floor(Math.random() * currentCharset.length)]);
+};
+
+const getCharsetForLevel = (level) => {
+  let chars = [...lowercase];
+
+  if (level >= 2) {
+    chars.push(...numbers);
+  }
+  if (level >= 3) {
+    chars.push(...uppercase);
+  }
+  if (level >= 4) {
+    chars.push(...curlies);
+  }
+
+  if (level >= 5) {
+    chars.push(...arrows);
+  }
+
+  if (level >= 6) {
+    chars.push(...math);
+  }
+
+  return chars;
+};
 
 let inputSequence = [];
 let currentTarget = [];
@@ -171,9 +200,6 @@ process.stdin.on('keypress', (str, key) => {
 
   if (key.sequence in keyMap) {
     displayKey = keyMap[key.sequence];
-  } else if (key.name === 'escape') {
-    console.log('\n👋 Exiting...');
-    process.exit();
   } else if (key.ctrl && key.name === 'c') {
     console.log('\n👋 Exiting...');
     process.exit();
