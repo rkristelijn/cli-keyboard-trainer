@@ -32,8 +32,8 @@ const charset = [
   // ...whitespace,
   // backspace,
   // del,
-  ...homeend,
-  ...pageUpDown,
+  // ...homeend,
+  // ...pageUpDown,
 ];
 
 const keyMap = {
@@ -53,8 +53,13 @@ const keyMap = {
 };
 
 const sequenceLength = 8;
+
 let scoreRight = 0;
 let scoreWrong = 0;
+let totalKeystrokes = 0;
+const missedKeys = {}; // { 'a': 2, '↘': 1, ... }
+
+const startTime = Date.now();
 
 const getRandomSequence = () =>
   Array.from({ length: sequenceLength }, () =>
@@ -66,8 +71,27 @@ let currentTarget = [];
 
 const displayTarget = (target) => {
   console.clear();
+
+  const accuracy = totalKeystrokes === 0
+  ? 0
+  : Math.round((scoreRight / totalKeystrokes) * 100);
+
+  const elapsedMs = Date.now() - startTime;
+  const elapsedMin = elapsedMs / 1000 / 60;
+  const kpm = Math.round(totalKeystrokes / elapsedMin);
+
   console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+C to quit.\n');
-  console.log('right: [' + chalk.green(scoreRight) + '] typos: [' + chalk.red(scoreWrong) + ']\n');
+  console.log('------------------------------------------------------------');
+  console.log(
+    'right: [' + chalk.green(scoreRight) + '] ' +
+    'typos: [' + chalk.red(scoreWrong) + '] ' +
+    'KPM: [' + chalk.cyan(kpm) + '] ' +
+    'Accuracy: [' + chalk.yellow(accuracy + '%') + ']' +
+    (Object.keys(missedKeys).length > 0
+    ? ' Missed: [' + getMissedKeysList() + ']'
+    : '')
+  );
+  console.log('------------------------------------------------------------');
   console.log(chalk.bold('Target: ') + target.join(' '));
   console.log(chalk.bold('Input:  '));
 };
@@ -92,6 +116,17 @@ const updateInputDisplay = () => {
   process.stdout.write(chalk.bold('Input:  ') + line.join(' ') + '\n');
 };
 
+const getMissedKeysList = () => {
+  if (Object.keys(missedKeys).length === 0) {
+    return '';
+  }
+  const sorted = Object.entries(missedKeys)
+    .sort(([, a], [, b]) => b - a)
+    // .slice(0, 5); // top 5 most missed
+
+  return sorted.map(([key, count]) => `${chalk.red(key)}(${count})`).join(' ');
+};
+
 const startNewRound = () => {
   currentTarget = getRandomSequence();
   inputSequence = [];
@@ -105,6 +140,8 @@ startNewRound();
 
 process.stdin.on('keypress', (str, key) => {
   let displayKey = keyMap[str] ?? str;
+
+  totalKeystrokes++;
 
   if (key.sequence in keyMap) {
     displayKey = keyMap[key.sequence];
@@ -121,10 +158,13 @@ process.stdin.on('keypress', (str, key) => {
 
   if (inputSequence.length === currentTarget.length) {
     currentTarget.forEach((char, i) => {
-      if (inputSequence[i] === char) {
+      const inputChar = inputSequence[i];
+    
+      if (inputChar === char) {
         scoreRight++;
       } else {
         scoreWrong++;
+        missedKeys[char] = (missedKeys[char] || 0) + 1;
       }
     });
     setTimeout(startNewRound, 1000);
