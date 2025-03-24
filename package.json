@@ -18,11 +18,11 @@
   "name": "cli-kt",
   "repository": {
     "type": "git",
-    "url": "git@github.com:rkristelijn/cli-keyboard-trainer.git"
+    "url": "git+ssh://git@github.com/rkristelijn/cli-keyboard-trainer.git"
   },
   "scripts": {
     "start": "node index.js"
   },
   "type": "module",
-  "version": "1.0.1"
+  "version": "1.0.2"
 }
