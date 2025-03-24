@@ -3,17 +3,9 @@
 import readline from 'readline';
 import chalk from 'chalk';
 
-// const leftCenterRow = 'asdfg';
-// const rightCenterRow = 'hjkl';
-// const leftTopRow = 'qwert';
-// const rightTopRow = 'yuiop';
-// const leftBottomRow = 'zxcvb';
-// const rightBottomRow = 'bnm';
 const lowercase = 'abcdefghijklmnopqrstuvwxyz';
 const uppercase = lowercase.toUpperCase();
 const numbers = '1234567890';
-// const leftNumbers = '12345';
-// const rightNumbers = '67890';
 const curlies = '()[]{}<>';
 const arrows = '↑↓←→';
 const math = '+-*/%=';
@@ -27,24 +19,6 @@ const del = '⌦';
 const homeend = ['↖', '↘'];
 const pageUpDown = ['⇞', '⇟'];
 const escape = '⎋';
-
-// const charset = [
-//   ...lowercase,
-//   // ...uppercase,
-//   // ...numbers,
-//   // ...curlies,
-//   // ...arrows,
-//   // ...math,
-//   // ...punctuation,
-//   // ...quotes,
-//   // ...pathChars,
-//   // ...symbols,
-//   // ...whitespace,
-//   // backspace,
-//   // del,
-//   // ...homeend,
-//   // ...pageUpDown,
-// ];
 
 const keyMap = {
   '\x1b[A': '↑',
@@ -63,20 +37,19 @@ const keyMap = {
   '\x1b': '⎋', // Escape
 };
 
-const sequenceLength = 8;
+const SEQUENCE_LENGTH = 8;
 
 let scoreRight = 0;
 let scoreWrong = 0;
 let totalKeystrokes = 0;
-let level = 0;
+let LEVEL = 0;
 let levelStatus = 0;
-let levelBump = 2;
-
-const missedKeys = {}; // { 'a': 2, '↘': 1, ... }
+let levelBump = 10;
+const MISSED_KEYS = {};
 
 const startTime = Date.now();
 
-const getRandomSequence = () => {
+const getRandomSequence = (level, sequenceLength) => {
   const currentCharset = getCharsetForLevel(level + 1); // level is base-0
   return Array.from({ length: sequenceLength }, () => currentCharset[Math.floor(Math.random() * currentCharset.length)]);
 };
@@ -148,7 +121,7 @@ const printStatus = () => {
       chalk.yellow(accuracy + '%') +
       '] ' +
       'Level: [' +
-      chalk.red(level) +
+      chalk.red(LEVEL) +
       '] ' +
       'levelStatus: [' +
       chalk.blue(levelStatus + '/' + levelBump) +
@@ -156,7 +129,7 @@ const printStatus = () => {
       'Total Time: [' +
       chalk.magenta(elapsedMin.toFixed(2) + ' min') +
       '] ' +
-      (Object.keys(missedKeys).length > 0 ? ' Missed: [' + getMissedKeysList() + ']' : '')
+      (Object.keys(MISSED_KEYS).length > 0 ? ' Missed: [' + getMissedKeysList(MISSED_KEYS) + ']' : '')
   );
 };
 
@@ -192,25 +165,16 @@ const updateInputDisplay = () => {
   process.stdout.write(chalk.bold('Input:  ') + line.join(' ') + '\n');
 };
 
-const renderLevelBar = (status) => {
-  const totalBlocks = 10;
-  const filledBlocks = Math.floor((status % 100) / 10);
-  const bar = Array.from({ length: totalBlocks }, (_, i) => (i < filledBlocks ? chalk.green('■') : chalk.gray('·'))).join('');
-  return bar;
-};
-
-const getMissedKeysList = () => {
+const getMissedKeysList = (missedKeys) => {
   if (Object.keys(missedKeys).length === 0) {
     return '';
   }
   const sorted = Object.entries(missedKeys).sort(([, a], [, b]) => b - a);
-  // .slice(0, 5); // top 5 most missed
-
   return sorted.map(([key, count]) => `${chalk.red(key)}(${count})`).join(' ');
 };
 
 const startNewRound = () => {
-  currentTarget = getRandomSequence();
+  currentTarget = getRandomSequence(LEVEL, SEQUENCE_LENGTH);
   inputSequence = [];
   displayTarget(currentTarget);
 };
@@ -244,14 +208,14 @@ process.stdin.on('keypress', (str, key) => {
         scoreRight++;
       } else {
         scoreWrong++;
-        missedKeys[char] = (missedKeys[char] || 0) + 1;
+        MISSED_KEYS[char] = (MISSED_KEYS[char] || 0) + 1;
       }
     });
 
     levelStatus++;
     // Level up if levelStatus exceeds levelBump
     if (levelStatus >= levelBump) {
-      level++;
+      LEVEL++;
       levelStatus = 0;
     }
 
