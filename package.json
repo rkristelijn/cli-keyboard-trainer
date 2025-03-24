@@ -1,6 +1,12 @@
 {
-  "name": "cli-keyboard-trainer",
-  "version": "1.0.0",
+  "author": "Remi Kristelijn",
+  "bin": {
+    "cli-kt": "index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "readline": "^1.3.0"
+  },
   "description": "CLI keyboard trainer",
   "keywords": [
     "cli",
@@ -8,14 +14,15 @@
     "trainier"
   ],
   "license": "ISC",
-  "author": "Remi Kristelijn",
-  "type": "module",
   "main": "index.js",
+  "name": "cli-keyboard-trainer",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:rkristelijn/cli-keyboard-trainer.git"
+  },
   "scripts": {
     "start": "node index.js"
   },
-  "dependencies": {
-    "chalk": "^5.4.1",
-    "readline": "^1.3.0"
-  }
+  "type": "module",
+  "version": "1.0.0"
 }
