@@ -2,7 +2,7 @@
 
 This is a simple keyboard trainer
 
-run `npm start` 
+`npx cli-kt`
 
 ![](screenshot.jpg)
 
