@@ -122,7 +122,7 @@ let wordsCompletedInLevel = 0;
 let currentSentence = [];
 let currentWordIndex = 0;
 let sentencesCompleted = 0;
-const SENTENCES_PER_LEVEL = 5;  // Complete 10 sentences before level up
+const SENTENCES_PER_LEVEL = 5;  // Complete 5 sentences before level up (was 10)
 
 // Utility functions
 function getRandomSequence(level, sequenceLength) {
@@ -185,7 +185,9 @@ function getMissedKeysList(missedKeys) {
 
 function displayTarget(target, mode) {
   console.clear();
-  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+S for settings, Ctrl+C to quit.\n');
+  const modeText = mode === 'text' ? 'Text Mode' : mode === 'letter' ? 'Letter Mode' : 'Letter Trainer Mode';
+  const settingsText = mode === 'letter' ? '' : ', Ctrl+S for settings';
+  console.log(`Keyboard Trainer - ${chalk.cyan(modeText)} - Type the shown sequence. Press Ctrl+C to quit${settingsText}.\n`);
   console.log('--------------------------------------------------------------------------------------------------');
   printStatus(mode);
   console.log('--------------------------------------------------------------------------------------------------');
@@ -193,11 +195,10 @@ function displayTarget(target, mode) {
   if (mode === 'text') {
     console.log(chalk.yellow(`Current level: ${currentWordLength}-letter words`));
     console.log(chalk.yellow(`Sentence ${sentencesCompleted + 1}/${SENTENCES_PER_LEVEL}\n`));
-    
-    // Display the full sentence as one line
-    console.log('Sentence:');
-    console.log(chalk.bold(currentSentence.join(' ')));
-    console.log();
+  } else if (mode === 'letter') {
+    // Show available characters for current level
+    const chars = getCharsetForLevel(LEVEL);
+    console.log(chalk.yellow(`Level ${LEVEL + 1}: Available characters: ${chars.join(' ')}\n`));
   } else if (charsetOptions.crossShift) {
     console.log(chalk.yellow('Cross-shift mode enabled:'));
     console.log(chalk.yellow('Use RIGHT SHIFT for: Q W E R T A S D F G Z X C V B'));
@@ -205,7 +206,7 @@ function displayTarget(target, mode) {
     console.log('--------------------------------------------------------------------------------------------------\n');
   }
 
-  console.log(chalk.bold('Target: ') + target.join(''));
+  console.log(chalk.bold('Target: ') + (mode === 'text' ? target.join('') : target.join(' ')));
   console.log(chalk.bold('Input:  '));
 }
 
@@ -254,26 +255,26 @@ function updateInputDisplay(mode = 'letter') {
       return chalk.gray(char);
     }
 
-    // For text mode, just do direct character comparison
+    // For text mode, do direct character comparison
     if (mode === 'text') {
       return inputChar === char ? chalk.green(inputChar) : chalk.red(inputChar);
     }
 
-    // For letter mode, use the existing comparison logic
+    // For letter mode and letter trainer mode, normalize both input and target for comparison
     const normalizeKey = (key) => {
-      const arrowMap = {
-        'up': '↑',
-        'down': '↓',
-        'left': '←',
-        'right': '→'
-      };
-      
-      if (arrowMap[key]) return arrowMap[key];
-      if (key && key.startsWith('f')) return key.toUpperCase();
+      if (key === '↑' || key === 'up') return '↑';
+      if (key === '↓' || key === 'down') return '↓';
+      if (key === '←' || key === 'left') return '←';
+      if (key === '→' || key === 'right') return '→';
+      if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1))) {
+        return key.toUpperCase();
+      }
       return key;
     };
 
-    const isMatch = normalizeKey(inputChar) === normalizeKey(char);
+    const normalizedInput = normalizeKey(inputChar);
+    const normalizedTarget = normalizeKey(char);
+    const isMatch = normalizedInput === normalizedTarget;
     return isMatch ? chalk.green(inputChar) : chalk.red(inputChar);
   });
 
@@ -282,7 +283,6 @@ function updateInputDisplay(mode = 'letter') {
   readline.moveCursor(process.stdout, 0, -1);
   readline.clearLine(process.stdout, 0);
   
-  // For text mode, don't add spaces between characters
   const displayStr = mode === 'text' ? line.join('') : line.join(' ');
   process.stdout.write(chalk.bold('Input:  ') + displayStr + '\n');
 }
@@ -316,14 +316,35 @@ function startGame(mode) {
       return;
     }
 
-    if (key.ctrl && key.name === 's') {
+    // Only show settings option for modes 1 and 2
+    if (key.ctrl && key.name === 's' && mode !== 'letter') {
       process.stdin.removeListener('keypress', currentKeypressHandler);
       currentKeypressHandler = null;
       openSettingsMenu();
       return;
     }
 
-    let displayKey = keyMap[str] ?? str;
+    // Get the character to display
+    let displayKey;
+    if (mode === 'text' || mode === 'letter') {
+      // For text mode and letter mode, use the raw character input without transformations
+      displayKey = str;
+    } else {
+      // For letter trainer mode, handle special keys
+      if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1))) {
+        displayKey = key.name.toUpperCase();
+      } else if (key.name === 'up') {
+        displayKey = '↑';
+      } else if (key.name === 'down') {
+        displayKey = '↓';
+      } else if (key.name === 'left') {
+        displayKey = '←';
+      } else if (key.name === 'right') {
+        displayKey = '→';
+      } else {
+        displayKey = keyMap[str] ?? str;
+      }
+    }
     
     if (inputSequence.length < currentTarget.length) {
       inputSequence.push(displayKey);
@@ -353,8 +374,17 @@ function startGame(mode) {
           }
           // Immediately start new sentence
           startNewRound(mode);
+        } else if (mode === 'letter') {
+          // Letter mode level up logic with automatic charset progression
+          if (levelStatus >= levelBump) {
+            LEVEL++;
+            levelStatus = 0;
+            // Update character sets based on level
+            updateLetterModeCharsets(LEVEL);
+          }
+          setTimeout(() => startNewRound(mode), 500);
         } else {
-          // Original letter mode level up logic
+          // Letter trainer mode
           if (levelStatus >= levelBump) {
             LEVEL++;
             levelStatus = 0;
@@ -386,6 +416,7 @@ function startTextMode() {
   currentWordLength = 3;
   sentencesCompleted = 0;
   currentSentence = generateNewSentence();
+  
   // Join all words into a single target
   currentTarget = currentSentence.join(' ').split('');
   
@@ -404,7 +435,14 @@ function startLetterMode() {
   resetGameState();
   console.clear();
   console.log(chalk.bold('Letter Mode\n'));
-  console.log('Press Ctrl+C to return to menu, Ctrl+S for settings\n');
+  console.log('Press Ctrl+C to return to menu\n');
+  
+  // Force only lowercase for letter mode
+  Object.keys(charsetOptions).forEach(key => {
+    charsetOptions[key] = false;
+  });
+  charsetOptions.lowercase = true;
+  
   startGame('letter');
 }
 
@@ -528,6 +566,32 @@ function getSettingDescription(key) {
     shiftKeys: 'Include shift key practice',
   };
   return descriptions[key] || '';
+}
+
+// Add new function to handle letter mode charset progression
+function updateLetterModeCharsets(level) {
+  // Reset all charsets
+  Object.keys(charsetOptions).forEach(key => {
+    charsetOptions[key] = false;
+  });
+  
+  // Always have lowercase enabled
+  charsetOptions.lowercase = true;
+  
+  // Add character sets based on level
+  if (level >= 2) charsetOptions.numbers = true;
+  if (level >= 3) charsetOptions.uppercase = true;
+  if (level >= 4) charsetOptions.curlies = true;
+  if (level >= 5) charsetOptions.arrows = true;
+  if (level >= 6) charsetOptions.math = true;
+  if (level >= 7) charsetOptions.punctuation = true;
+  if (level >= 8) charsetOptions.quotes = true;
+  if (level >= 9) charsetOptions.pathChars = true;
+  if (level >= 10) charsetOptions.symbols = true;
+  if (level >= 11) charsetOptions.whitespace = true;
+  if (level >= 12) charsetOptions.backspace = true;
+  if (level >= 13) charsetOptions.del = true;
+  if (level >= 14) charsetOptions.functionKeys = true;
 }
 
 // Start the application
