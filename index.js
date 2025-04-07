@@ -3,6 +3,8 @@
 import readline from 'readline';
 import chalk from 'chalk';
 import { generate } from 'random-words';
+import fs from 'fs';
+import path from 'path';
 
 // Character sets and constants
 const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -262,19 +264,24 @@ function updateInputDisplay(mode = 'letter') {
 
     // For letter mode and letter trainer mode, normalize both input and target for comparison
     const normalizeKey = (key) => {
+      // Normalize arrow keys in all modes
       if (key === '↑' || key === 'up') return '↑';
       if (key === '↓' || key === 'down') return '↓';
       if (key === '←' || key === 'left') return '←';
       if (key === '→' || key === 'right') return '→';
-      if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1))) {
+      
+      // Handle function keys
+      if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1)) && key.length > 1) {
         return key.toUpperCase();
       }
+      
       return key;
     };
 
     const normalizedInput = normalizeKey(inputChar);
     const normalizedTarget = normalizeKey(char);
     const isMatch = normalizedInput === normalizedTarget;
+    
     return isMatch ? chalk.green(inputChar) : chalk.red(inputChar);
   });
 
@@ -285,6 +292,55 @@ function updateInputDisplay(mode = 'letter') {
   
   const displayStr = mode === 'text' ? line.join('') : line.join(' ');
   process.stdout.write(chalk.bold('Input:  ') + displayStr + '\n');
+}
+
+// Add this function to save scores
+function saveScore(mode) {
+  try {
+    const accuracy = totalKeystrokes === 0 ? 0 : Math.round((scoreRight / totalKeystrokes) * 100);
+    const elapsedMs = Date.now() - startTime;
+    const elapsedMin = elapsedMs / 1000 / 60;
+    const kpm = Math.round(totalKeystrokes / elapsedMin);
+    
+    const scoreData = {
+      timestamp: new Date().toISOString(),
+      mode: mode,
+      accuracy: accuracy,
+      kpm: kpm,
+      right: scoreRight,
+      wrong: scoreWrong,
+      totalKeystrokes: totalKeystrokes,
+      level: mode === 'text' ? currentWordLength : LEVEL,
+      timeSpent: elapsedMin.toFixed(2)
+    };
+    
+    const scoreLogPath = path.join(process.cwd(), 'score.log');
+    
+    // Read existing file if it exists
+    let existingData = [];
+    try {
+      if (fs.existsSync(scoreLogPath)) {
+        const fileContent = fs.readFileSync(scoreLogPath, 'utf8');
+        existingData = fileContent.split('\n')
+          .filter(line => line.trim())
+          .map(line => JSON.parse(line));
+      }
+    } catch (err) {
+      // If error reading file, just continue with empty array
+      console.error('Error reading existing score log:', err.message);
+    }
+    
+    // Add new score and write back
+    existingData.push(scoreData);
+    
+    // Write each JSON object on a new line for easier appending
+    const dataToWrite = existingData.map(entry => JSON.stringify(entry)).join('\n') + '\n';
+    fs.writeFileSync(scoreLogPath, dataToWrite);
+    
+    console.log(chalk.green(`\nScore saved to score.log`));
+  } catch (err) {
+    console.error('Error saving score:', err.message);
+  }
 }
 
 // Game modes
@@ -311,6 +367,12 @@ function startGame(mode) {
       currentKeypressHandler = null;
       process.stdin.setRawMode(false);
       process.stdin.pause();
+      
+      // Save score before exiting
+      if (totalKeystrokes > 0) {
+        saveScore(mode);
+      }
+      
       console.clear();
       showMenu();
       return;
@@ -326,12 +388,27 @@ function startGame(mode) {
 
     // Get the character to display
     let displayKey;
-    if (mode === 'text' || mode === 'letter') {
-      // For text mode and letter mode, use the raw character input without transformations
+    if (mode === 'text') {
+      // Text mode - use raw character input
       displayKey = str;
+    } else if (mode === 'letter') {
+      // Letter mode - handle special keys including arrows
+      if (key.name === 'up') {
+        displayKey = '↑';
+      } else if (key.name === 'down') {
+        displayKey = '↓';
+      } else if (key.name === 'left') {
+        displayKey = '←';
+      } else if (key.name === 'right') {
+        displayKey = '→';
+      } else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
+        displayKey = key.name.toUpperCase();
+      } else {
+        displayKey = str;
+      }
     } else {
-      // For letter trainer mode, handle special keys
-      if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1))) {
+      // Letter trainer mode
+      if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
         displayKey = key.name.toUpperCase();
       } else if (key.name === 'up') {
         displayKey = '↑';
@@ -505,6 +582,11 @@ function openSettingsMenu() {
   
   process.stdin.setRawMode(true);
   process.stdin.resume();
+  
+  // Store current game mode to return to it
+  const previousMode = currentTarget.length > 0 ? 
+    (currentTarget.includes(' ') ? 'text' : 'letter-trainer') : 
+    'letter-trainer';
 
   const renderMenu = () => {
     console.clear();
@@ -525,9 +607,13 @@ function openSettingsMenu() {
       // Clean up settings handler
       process.stdin.removeListener('keypress', settingsHandler);
       
-      // Return to game
+      // Return to the correct game mode
       console.clear();
-      startGame('letter');
+      if (previousMode === 'text') {
+        startTextMode();
+      } else {
+        startLetterTrainer();
+      }
       return;
     }
 
