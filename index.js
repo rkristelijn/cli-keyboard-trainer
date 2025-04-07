@@ -82,7 +82,7 @@ let currentTarget = [];
 let startTime = Date.now();
 let currentRl = null;
 const SEQUENCE_LENGTH = 8;
-const MISSED_KEYS = {};
+let MISSED_KEYS = {};
 
 // Settings
 const charsetOptions = {
@@ -125,6 +125,11 @@ let currentSentence = [];
 let currentWordIndex = 0;
 let sentencesCompleted = 0;
 const SENTENCES_PER_LEVEL = 5;  // Complete 5 sentences before level up (was 10)
+
+// Add variables to track per-level statistics
+let levelStats = {};
+let levelStartTimes = {};
+let levelKeypresses = {};
 
 // Utility functions
 function getRandomSequence(level, sequenceLength) {
@@ -213,14 +218,21 @@ function displayTarget(target, mode) {
 }
 
 function resetGameState() {
+  startTime = Date.now();
   scoreRight = 0;
   scoreWrong = 0;
   totalKeystrokes = 0;
-  LEVEL = 0;
-  levelStatus = 0;
   inputSequence = [];
-  currentTarget = [];
-  startTime = Date.now();
+  sentencesCompleted = 0;
+  levelStatus = 0;
+  LEVEL = 0;
+  currentWordLength = 3;
+  MISSED_KEYS = {};
+  
+  // Reset level tracking
+  levelStats = {};
+  levelStartTimes = {};
+  levelKeypresses = {};
   
   // Clean up readline interface
   if (currentRl) {
@@ -302,6 +314,16 @@ function saveScore(mode) {
     const elapsedMin = elapsedMs / 1000 / 60;
     const kpm = Math.round(totalKeystrokes / elapsedMin);
     
+    // Calculate KPM per level
+    const kpmPerLevel = {};
+    Object.keys(levelKeypresses).forEach(level => {
+      const levelTime = (levelStartTimes[level].end - levelStartTimes[level].start) / 1000 / 60;
+      if (levelTime > 0) {
+        kpmPerLevel[level] = Math.round(levelKeypresses[level] / levelTime);
+      }
+    });
+    
+    // Create score data with enhanced statistics
     const scoreData = {
       timestamp: new Date().toISOString(),
       mode: mode,
@@ -311,8 +333,21 @@ function saveScore(mode) {
       wrong: scoreWrong,
       totalKeystrokes: totalKeystrokes,
       level: mode === 'text' ? currentWordLength : LEVEL,
-      timeSpent: elapsedMin.toFixed(2)
+      timeSpent: elapsedMin.toFixed(2),
+      detailedStats: {
+        kpmPerLevel: kpmPerLevel,
+        missedKeys: MISSED_KEYS
+      }
     };
+    
+    // Add mode-specific data
+    if (mode === 'letter-trainer') {
+      // For letter-trainer mode, log which character sets were enabled
+      scoreData.detailedStats.enabledOptions = {};
+      Object.keys(charsetOptions).forEach(key => {
+        scoreData.detailedStats.enabledOptions[key] = charsetOptions[key];
+      });
+    }
     
     const scoreLogPath = path.join(process.cwd(), 'score.log');
     
@@ -357,6 +392,14 @@ function startGame(mode) {
   }
   process.stdin.resume();
   readline.emitKeypressEvents(process.stdin);
+
+  // Initialize level tracking for current level
+  if (!levelStartTimes[LEVEL]) {
+    levelStartTimes[LEVEL] = { start: Date.now(), end: null };
+  }
+  if (!levelKeypresses[LEVEL]) {
+    levelKeypresses[LEVEL] = 0;
+  }
 
   // Start first round with appropriate mode
   startNewRound(mode);
@@ -440,13 +483,26 @@ function startGame(mode) {
 
       updateInputDisplay(mode);
 
+      // Track keypress for current level
+      levelKeypresses[LEVEL] = (levelKeypresses[LEVEL] || 0) + 1;
+
       if (inputSequence.length === currentTarget.length) {
         if (mode === 'text') {
           sentencesCompleted++;
           if (sentencesCompleted >= SENTENCES_PER_LEVEL) {
-            // Level up - increase word length
+            // Mark end time for current level
+            if (levelStartTimes[currentWordLength]) {
+              levelStartTimes[currentWordLength].end = Date.now();
+            }
+            
+            // Initialize next level
             currentWordLength++;
-            sentencesCompleted = 0;
+            if (!levelStartTimes[currentWordLength]) {
+              levelStartTimes[currentWordLength] = { start: Date.now(), end: null };
+            }
+            if (!levelKeypresses[currentWordLength]) {
+              levelKeypresses[currentWordLength] = 0;
+            }
             console.log(chalk.bold.green(`\nLevel up! Now typing ${currentWordLength}-letter words`));
           }
           // Immediately start new sentence
@@ -454,8 +510,21 @@ function startGame(mode) {
         } else if (mode === 'letter') {
           // Letter mode level up logic with automatic charset progression
           if (levelStatus >= levelBump) {
+            // Mark end time for current level
+            if (levelStartTimes[LEVEL]) {
+              levelStartTimes[LEVEL].end = Date.now();
+            }
+            
+            // Initialize next level
             LEVEL++;
             levelStatus = 0;
+            if (!levelStartTimes[LEVEL]) {
+              levelStartTimes[LEVEL] = { start: Date.now(), end: null };
+            }
+            if (!levelKeypresses[LEVEL]) {
+              levelKeypresses[LEVEL] = 0;
+            }
+            
             // Update character sets based on level
             updateLetterModeCharsets(LEVEL);
           }
@@ -463,8 +532,20 @@ function startGame(mode) {
         } else {
           // Letter trainer mode
           if (levelStatus >= levelBump) {
+            // Mark end time for current level
+            if (levelStartTimes[LEVEL]) {
+              levelStartTimes[LEVEL].end = Date.now();
+            }
+            
+            // Initialize next level
             LEVEL++;
             levelStatus = 0;
+            if (!levelStartTimes[LEVEL]) {
+              levelStartTimes[LEVEL] = { start: Date.now(), end: null };
+            }
+            if (!levelKeypresses[LEVEL]) {
+              levelKeypresses[LEVEL] = 0;
+            }
           }
           setTimeout(() => startNewRound(mode), 500);
         }
@@ -587,7 +668,13 @@ function openSettingsMenu() {
   const previousMode = currentTarget.length > 0 ? 
     (currentTarget.includes(' ') ? 'text' : 'letter-trainer') : 
     'letter-trainer';
-
+  
+  // Log current progress before changing settings
+  if (totalKeystrokes > 0) {
+    console.log(chalk.cyan('\nLogging current progress before settings change...'));
+    saveScore(previousMode);
+  }
+  
   const renderMenu = () => {
     console.clear();
     console.log(chalk.bold('Settings - Toggle Charset Groups (press letter to toggle, or q to quit):\n'));
