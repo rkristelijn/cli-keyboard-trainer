@@ -37,15 +37,19 @@ const keyMap = {
   '\x1b': '⎋', // Escape
 };
 
+// globals
 const SEQUENCE_LENGTH = 8;
+const MISSED_KEYS = {};
 
+// things that should be global
 let scoreRight = 0;
 let scoreWrong = 0;
 let totalKeystrokes = 0;
 let LEVEL = 0;
 let levelStatus = 0;
 let levelBump = 10;
-const MISSED_KEYS = {};
+let inputSequence = [];
+let currentTarget = [];
 
 const startTime = Date.now();
 
@@ -97,9 +101,6 @@ const getCharsetForLevel = (level) => {
   return chars;
 };
 
-let inputSequence = [];
-let currentTarget = [];
-
 const printStatus = () => {
   const accuracy = totalKeystrokes === 0 ? 0 : Math.round((scoreRight / totalKeystrokes) * 100);
 
@@ -124,22 +125,22 @@ const printStatus = () => {
       chalk.red(LEVEL) +
       '] ' +
       'levelStatus: [' +
-      chalk.blue(levelStatus + '/' + levelBump) +
+      chalk.blueBright(levelStatus + '/' + levelBump) +
       '] ' +
       'Total Time: [' +
       chalk.magenta(elapsedMin.toFixed(2) + ' min') +
       '] ' +
-      (Object.keys(MISSED_KEYS).length > 0 ? ' Missed: [' + getMissedKeysList(MISSED_KEYS) + ']' : '')
+      (Object.keys(MISSED_KEYS).length > 0 ? '\n\nMissed: ' + getMissedKeysList(MISSED_KEYS) : '')
   );
 };
 
 
 const displayTarget = (target) => {
   console.clear();
-  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+C to quit.\n');
-  console.log('---------------------------------------------------------------------------------------');
+  console.log('Keyboard Trainer - Type the shown sequence. Press Ctrl+S for settings, Ctrl+C to quit.\n');
+  console.log('--------------------------------------------------------------------------------------------------');
   printStatus();
-  console.log('---------------------------------------------------------------------------------------');
+  console.log('--------------------------------------------------------------------------------------------------');
 
   console.log(chalk.bold('Target: ') + target.join(' '));
   console.log(chalk.bold('Input:  '));
@@ -179,6 +180,66 @@ const startNewRound = () => {
   displayTarget(currentTarget);
 };
 
+const openSettingsMenu = () => {
+  const keys = Object.keys(charsetOptions);
+
+  const renderMenu = () => {
+    console.clear();
+    console.log(chalk.bold('Settings - Toggle Charset Groups (type number + Enter, or q to quit):\n'));
+    keys.forEach((key, index) => {
+      const isEnabled = charsetOptions[key] ? chalk.green('ON') : chalk.red('OFF');
+      console.log(`${index + 1}. [${isEnabled}] ${key}`);
+    });
+    console.log('\nToggle: [1–' + keys.length + '], or press "q" to return to training.');
+  };
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const prompt = () => {
+    renderMenu();
+    rl.question('\nYour choice: ', (input) => {
+      if (input.toLowerCase() === 'q') {
+        rl.close();
+        startNewRound();
+        return;
+      }
+
+      const num = parseInt(input);
+      if (!isNaN(num) && num >= 1 && num <= keys.length) {
+        const key = keys[num - 1];
+        charsetOptions[key] = !charsetOptions[key];
+      }
+
+      prompt(); // loop opnieuw
+    });
+  };
+
+  prompt();
+};
+
+const charsetOptions = {
+  lowercase: true,
+  uppercase: true,
+  numbers: true,
+  curlies: true,
+  arrows: true,
+  math: true,
+  punctuation: true,
+  quotes: true,
+  pathChars: true,
+  symbols: true,
+  whitespace: true,
+  backspace: true,
+  del: true,
+};
+
+
+
+/** MAIN */
+
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 
@@ -195,6 +256,10 @@ process.stdin.on('keypress', (str, key) => {
     console.log('\nExiting...');
     printStatus();
     process.exit();
+  } else if (key.ctrl && key.name === 's') {
+    // process.stdin.off('keypress', onKeyPress);
+    openSettingsMenu();
+    return;
   }
 
   inputSequence.push(displayKey);
