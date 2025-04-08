@@ -23,7 +23,8 @@ const del = '⌦';
 const homeend = ['↖', '↘'];
 const pageUpDown = ['⇞', '⇟'];
 const escape = '⎋';
-const functionKeys = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'];
+const mediaKeys = ['⏮', '⏯', '⏭', '🔇', '🔉', '🔊']; // Previous, Play/Pause, Next, Mute, Volume Down, Volume Up
+const functionKeys = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F12'];
 const shiftKeys = ['⇧L', '⇧R']; // Left and Right shift keys
 
 // Key mapping
@@ -42,20 +43,6 @@ const keyMap = {
   '\x1b[5~': '⇞',
   '\x1b[6~': '⇟',
   '\x1b': '⎋',
-  '\x1b[11~': 'F1',
-  '\x1b[12~': 'F2',
-  '\x1b[13~': 'F3',
-  '\x1b[14~': 'F4',
-  '\x1b[15~': 'F5',
-  '\x1b[17~': 'F6',
-  '\x1b[18~': 'F7',
-  '\x1b[19~': 'F8',
-  '\x1b[20~': 'F9',
-  '\x1b[21~': 'F10',
-  '\x1b[23~': 'F11',
-  '\x1b[24~': 'F12',
-  '\x1b[1;2': '⇧L', // Left shift
-  '\x1b[1;2': '⇧R', // Right shift
   '\x1bOP': 'F1',
   '\x1bOQ': 'F2',
   '\x1bOR': 'F3',
@@ -68,6 +55,8 @@ const keyMap = {
   '\x1b[21~': 'F10',
   '\x1b[23~': 'F11',
   '\x1b[24~': 'F12',
+  '\x1b[1;2': '⇧L', // Left shift
+  '\x1b[1;2': '⇧R', // Right shift
 };
 
 // Global state
@@ -99,6 +88,7 @@ const charsetOptions = {
   whitespace: false,
   backspace: false,
   del: false,
+  mediaKeys: false,
   functionKeys: false,
   shiftKeys: false,
   crossShift: false
@@ -153,6 +143,7 @@ function getCharsetForLevel(level) {
   if (charsetOptions.whitespace) chars.push(...whitespace);
   if (charsetOptions.backspace) chars.push(backspace);
   if (charsetOptions.del) chars.push(del);
+  if (charsetOptions.mediaKeys) chars.push(...mediaKeys);
   if (charsetOptions.functionKeys) chars.push(...functionKeys);
 
   // If no character sets are enabled, default to lowercase
@@ -281,6 +272,14 @@ function updateInputDisplay(mode = 'letter') {
       if (key === '↓' || key === 'down') return '↓';
       if (key === '←' || key === 'left') return '←';
       if (key === '→' || key === 'right') return '→';
+      if (key === '␣' || key === ' ') return '␣';
+      if (key === '⏎' || key === '\n' || key === '\r') return '⏎';
+      if (key === '⏮' || key === 'audioPrev') return '⏮';
+      if (key === '⏯' || key === 'audioPlay') return '⏯';
+      if (key === '⏭' || key === 'audioNext') return '⏭';
+      if (key === '🔇' || key === 'audioMute') return '🔇';
+      if (key === '🔉' || key === 'audioVolDown') return '🔉';
+      if (key === '🔊' || key === 'audioVolUp') return '🔊';
       
       // Handle function keys
       if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1)) && key.length > 1) {
@@ -435,7 +434,7 @@ function startGame(mode) {
       // Text mode - use raw character input
       displayKey = str;
     } else if (mode === 'letter') {
-      // Letter mode - handle special keys including arrows
+      // Letter mode - handle special keys including arrows and whitespace
       if (key.name === 'up') {
         displayKey = '↑';
       } else if (key.name === 'down') {
@@ -444,6 +443,22 @@ function startGame(mode) {
         displayKey = '←';
       } else if (key.name === 'right') {
         displayKey = '→';
+      } else if (key.name === 'space') {
+        displayKey = '␣';
+      } else if (key.name === 'return' || key.name === 'enter') {
+        displayKey = '⏎';
+      } else if (key.name === 'audioPrev') {
+        displayKey = '⏮';
+      } else if (key.name === 'audioPlay') {
+        displayKey = '⏯';
+      } else if (key.name === 'audioNext') {
+        displayKey = '⏭';
+      } else if (key.name === 'audioMute') {
+        displayKey = '🔇';
+      } else if (key.name === 'audioVolDown') {
+        displayKey = '🔉';
+      } else if (key.name === 'audioVolUp') {
+        displayKey = '🔊';
       } else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
         displayKey = key.name.toUpperCase();
       } else {
@@ -451,7 +466,19 @@ function startGame(mode) {
       }
     } else {
       // Letter trainer mode
-      if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
+      if (key.name === 'audioPrev') {
+        displayKey = '⏮';
+      } else if (key.name === 'audioPlay') {
+        displayKey = '⏯';
+      } else if (key.name === 'audioNext') {
+        displayKey = '⏭';
+      } else if (key.name === 'audioMute') {
+        displayKey = '🔇';
+      } else if (key.name === 'audioVolDown') {
+        displayKey = '🔉';
+      } else if (key.name === 'audioVolUp') {
+        displayKey = '🔊';
+      } else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
         displayKey = key.name.toUpperCase();
       } else if (key.name === 'up') {
         displayKey = '↑';
@@ -614,12 +641,32 @@ function showHeader() {
 }
 
 function showMenu() {
-  showHeader();
-  console.log(chalk.bold('Choose a mode:\n'));
+  console.clear();
+  console.log(chalk.cyan(`
+  ╔═══════════════════════════════════════════════════════════════════════════╗
+  ║                                                                           ║
+  ║   ██╗  ██╗███████╗██╗   ██╗██████╗  ██████╗  █████╗ ██████╗ ██████╗       ║
+  ║   ██║ ██╔╝██╔════╝╚██╗ ██╔╝██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██╔══██╗      ║
+  ║   █████╔╝ █████╗   ╚████╔╝ ██████╔╝██║   ██║███████║██████╔╝██║  ██║      ║
+  ║   ██╔═██╗ ██╔══╝    ╚██╔╝  ██╔══██╗██║   ██║██╔══██║██╔══██╗██║  ██║      ║
+  ║   ██║  ██╗███████╗   ██║   ██████╔╝╚██████╔╝██║  ██║██║  ██║██████╔╝      ║
+  ║   ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝       ║
+  ║                                                                           ║
+  ║   ████████╗██████╗  █████╗ ██╗███╗   ██╗███████╗██████╗                   ║
+  ║   ╚══██╔══╝██╔══██╗██╔══██╗██║████╗  ██║██╔════╝██╔══██╗                  ║
+  ║      ██║   ██████╔╝███████║██║██╔██╗ ██║█████╗  ██████╔╝                  ║
+  ║      ██║   ██╔══██╗██╔══██║██║██║╚██╗██║██╔══╝  ██╔══██╗                  ║
+  ║      ██║   ██║  ██║██║  ██║██║██║ ╚████║███████╗██║  ██║                  ║
+  ║      ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝                  ║
+  ║                                                                           ║
+  ╚═══════════════════════════════════════════════════════════════════════════╝
+`));
+
+  console.log('Choose a mode:\n');
+
   MENU_OPTIONS.forEach((option, index) => {
     console.log(`${chalk.yellow(index + 1 + '.')} ${chalk.bold(option.label)} – ${option.description}`);
   });
-  console.log('\nPress the number of your choice, or "q" to quit.\n');
   
   currentRl = readline.createInterface({
     input: process.stdin,
@@ -735,6 +782,7 @@ function getSettingDescription(key) {
     lowercase: 'Basic lowercase letters (a-z)',
     uppercase: 'Uppercase letters (A-Z) - Required for cross-shift',
     crossShift: 'Enforce using opposite shift key for uppercase letters (automatically enables lowercase and uppercase)',
+    mediaKeys: 'Media control keys (Previous, Play/Pause, Next, Volume controls)',
     functionKeys: 'Include F1-F12 keys in training',
     shiftKeys: 'Include shift key practice',
   };
