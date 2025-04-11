@@ -760,6 +760,7 @@ const MENU_OPTIONS = [
   { label: 'Letter Trainer Mode', description: 'Train specific keystrokes with custom settings', action: startLetterTrainer },
   { label: 'Normal Text Mode', description: 'Type real words/sentences in KPM mode', action: startTextMode },
   { label: 'Normal Letter Mode', description: 'Game with progressive levels and character sets', action: startLetterMode },
+  { label: 'View Progress', description: 'Analyze your typing performance and improvements', action: analyzeScores }
 ];
 
 // Add descriptions for settings
@@ -817,6 +818,135 @@ function updateLetterModeCharsets(level) {
   if (level >= 12) charsetOptions.backspace = true;
   if (level >= 13) charsetOptions.del = true;
   if (level >= 14) charsetOptions.functionKeys = true;
+}
+
+function analyzeScores() {
+  console.clear();
+  console.log(chalk.bold('Score Analysis\n'));
+  
+  try {
+    const scoreLogPath = path.join(process.cwd(), 'score.log');
+    let scores = [];
+    
+    if (fs.existsSync(scoreLogPath)) {
+      const content = fs.readFileSync(scoreLogPath, 'utf8');
+      scores = content.trim().split('\n').map(line => JSON.parse(line));
+    }
+    
+    if (scores.length === 0) {
+      console.log(chalk.yellow('No scores recorded yet. Play some games first!'));
+      return;
+    }
+
+    // Group scores by mode
+    const modeScores = {
+      'text': [],
+      'letter': [],
+      'letter-trainer': []
+    };
+
+    scores.forEach(score => {
+      if (modeScores[score.mode]) {
+        modeScores[score.mode].push(score);
+      }
+    });
+
+    // Analyze each mode
+    Object.entries(modeScores).forEach(([mode, modeData]) => {
+      if (modeData.length === 0) return;
+
+      console.log(chalk.cyan(`\n${mode.toUpperCase()} MODE ANALYSIS`));
+      console.log('----------------------------------');
+
+      // Sort by timestamp
+      modeData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // Calculate trends
+      const recentScores = modeData.slice(-5);
+      const avgAccuracy = recentScores.reduce((sum, s) => sum + s.accuracy, 0) / recentScores.length;
+      const avgKpm = recentScores.reduce((sum, s) => sum + s.kpm, 0) / recentScores.length;
+      const maxLevel = Math.max(...modeData.map(s => s.level));
+      const totalSessions = modeData.length;
+      
+      // Recent improvement calculations
+      const firstFive = modeData.slice(0, 5);
+      const initialAvgKpm = firstFive.reduce((sum, s) => sum + s.kpm, 0) / firstFive.length;
+      const kpmImprovement = ((avgKpm - initialAvgKpm) / initialAvgKpm * 100).toFixed(1);
+
+      // Display statistics
+      console.log(`Total Sessions: ${chalk.yellow(totalSessions)}`);
+      console.log(`Highest Level Reached: ${chalk.yellow(maxLevel)}`);
+      console.log(`Recent Average Accuracy: ${chalk.yellow(avgAccuracy.toFixed(1))}%`);
+      console.log(`Recent Average Speed: ${chalk.yellow(avgKpm.toFixed(1))} KPM`);
+      
+      if (!isNaN(kpmImprovement) && firstFive.length === 5) {
+        const improvementColor = kpmImprovement > 0 ? chalk.green : chalk.red;
+        console.log(`Speed Improvement: ${improvementColor(kpmImprovement + '%')}`);
+      }
+
+      // Show most common mistakes if available
+      if (modeData.some(s => s.detailedStats?.missedKeys)) {
+        const allMissedKeys = {};
+        modeData.forEach(score => {
+          if (score.detailedStats?.missedKeys) {
+            Object.entries(score.detailedStats.missedKeys).forEach(([key, count]) => {
+              allMissedKeys[key] = (allMissedKeys[key] || 0) + count;
+            });
+          }
+        });
+
+        if (Object.keys(allMissedKeys).length > 0) {
+          const topMistakes = Object.entries(allMissedKeys)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+          console.log('\nMost Common Mistakes:');
+          topMistakes.forEach(([key, count]) => {
+            console.log(`  ${chalk.red(key)}: ${count} times`);
+          });
+        }
+      }
+
+      // Show recent sessions
+      console.log('\nRecent Sessions:');
+      recentScores.reverse().forEach(score => {
+        const date = new Date(score.timestamp).toLocaleString();
+        console.log(
+          chalk.gray(`${date} - `) +
+          `Level: ${chalk.yellow(score.level)}, ` +
+          `Accuracy: ${chalk.yellow(score.accuracy)}%, ` +
+          `Speed: ${chalk.yellow(score.kpm)} KPM`
+        );
+      });
+    });
+
+    console.log('\nPress Enter to return to menu...');
+    
+    // Create readline interface for user input
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question('', () => {
+      rl.close();
+      showMenu();
+    });
+
+  } catch (error) {
+    console.error(chalk.red('Error reading scores:', error.message));
+    console.log('\nPress Enter to return to menu...');
+    
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question('', () => {
+      rl.close();
+      showMenu();
+    });
+  }
 }
 
 // Start the application
