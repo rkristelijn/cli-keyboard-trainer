@@ -8,7 +8,15 @@ import path from 'path';
 
 // Character sets and constants
 const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+const leftHandLowercase = 'qwertasdfgzxcvb';
+const rightHandLowercase = 'yuiophjklnm';
 const uppercase = lowercase.toUpperCase();
+const leftHandUppercase = leftHandLowercase.toUpperCase();
+const rightHandUppercase = rightHandLowercase.toUpperCase();
+const leftHandNumbers = '12345';
+const rightHandNumbers = '67890';
+const leftHandSymbols = '!@#$%';
+const rightHandSymbols = '^&*()';
 const numbers = '1234567890';
 const curlies = '()[]{}<>';
 const arrows = '↑↓←→';
@@ -20,12 +28,11 @@ const symbols = '@#$%^&';
 const whitespace = ['␣', '⇥', '⏎']; // Space, Tab, Enter
 const backspace = '⌫';
 const del = '⌦';
-const homeend = ['↖', '↘'];
-const pageUpDown = ['⇞', '⇟'];
-const escape = '⎋';
+const homeend = ['↖', '↘']; // Home, End
+const pageUpDown = ['⇞', '⇟']; // PageUp, PageDown
+const escape = '⎋'; // Escape key
 const mediaKeys = ['⏮', '⏯', '⏭', '🔇', '🔉', '🔊']; // Previous, Play/Pause, Next, Mute, Volume Down, Volume Up
 const functionKeys = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F12'];
-const shiftKeys = ['⇧L', '⇧R']; // Left and Right shift keys
 
 // Key mapping
 const keyMap = {
@@ -38,11 +45,11 @@ const keyMap = {
   '\r': '⏎',
   '\x7f': '⌫',
   '\x1b[3~': '⌦',
-  '\x1b[H': '⇱',
-  '\x1b[F': '⇲',
-  '\x1b[5~': '⇞',
-  '\x1b[6~': '⇟',
-  '\x1b': '⎋',
+  '\x1b[H': '↖',    // Home
+  '\x1b[F': '↘',    // End
+  '\x1b[5~': '⇞',   // Page Up
+  '\x1b[6~': '⇟',   // Page Down
+  '\x1b': '⎋',      // Escape
   '\x1bOP': 'F1',
   '\x1bOQ': 'F2',
   '\x1bOR': 'F3',
@@ -75,9 +82,12 @@ let MISSED_KEYS = {};
 
 // Settings
 const charsetOptions = {
-  lowercase: true,
-  uppercase: false,
-  numbers: false,
+  leftHandLowercase: true,
+  rightHandLowercase: true,
+  leftHandUppercase: false,
+  rightHandUppercase: false,
+  leftHandNumbers: false,
+  rightHandNumbers: false,
   curlies: false,
   arrows: false,
   math: false,
@@ -88,19 +98,14 @@ const charsetOptions = {
   whitespace: false,
   backspace: false,
   del: false,
+  homeend: false,
+  pageUpDown: false,
+  escape: false,
   mediaKeys: false,
   functionKeys: false,
   shiftKeys: false,
   crossShift: false
 };
-
-// Add shift state tracking
-let leftShiftPressed = false;
-let rightShiftPressed = false;
-
-// Define which characters should use which shift key
-const leftShiftChars = new Set('QWERTASDFGZXCVB!@#$%');
-const rightShiftChars = new Set('YUIOPHJKLNM^&*()_+');
 
 // Keep track of current game handler
 let currentKeypressHandler = null;
@@ -130,9 +135,12 @@ function getRandomSequence(level, sequenceLength) {
 function getCharsetForLevel(level) {
   let chars = [];
   
-  if (charsetOptions.lowercase) chars.push(...lowercase);
-  if (charsetOptions.uppercase) chars.push(...uppercase);
-  if (charsetOptions.numbers) chars.push(...numbers);
+  if (charsetOptions.leftHandLowercase) chars.push(...'qwertasdfgzxcvb');
+  if (charsetOptions.rightHandLowercase) chars.push(...'yuiophjklnm');
+  if (charsetOptions.leftHandUppercase) chars.push(...'QWERTASDFGZXCVB');
+  if (charsetOptions.rightHandUppercase) chars.push(...'YUIOPHJKLNM');
+  if (charsetOptions.leftHandNumbers) chars.push(...'12345');
+  if (charsetOptions.rightHandNumbers) chars.push(...'67890');
   if (charsetOptions.curlies) chars.push(...curlies);
   if (charsetOptions.arrows) chars.push(...arrows);
   if (charsetOptions.math) chars.push(...math);
@@ -143,14 +151,11 @@ function getCharsetForLevel(level) {
   if (charsetOptions.whitespace) chars.push(...whitespace);
   if (charsetOptions.backspace) chars.push(backspace);
   if (charsetOptions.del) chars.push(del);
+  if (charsetOptions.homeend) chars.push(...homeend);
+  if (charsetOptions.pageUpDown) chars.push(...pageUpDown);
+  if (charsetOptions.escape) chars.push(escape);
   if (charsetOptions.mediaKeys) chars.push(...mediaKeys);
   if (charsetOptions.functionKeys) chars.push(...functionKeys);
-
-  // If no character sets are enabled, default to lowercase
-  if (chars.length === 0) {
-    chars.push(...lowercase);
-    charsetOptions.lowercase = true;
-  }
 
   return chars;
 }
@@ -173,12 +178,6 @@ function printStatus(mode) {
     levelInfo + ' ' +
     'Total Time: [' + chalk.magenta(elapsedMin.toFixed(2) + ' min') + ']'
   );
-}
-
-function getMissedKeysList(missedKeys) {
-  if (Object.keys(missedKeys).length === 0) return '';
-  const sorted = Object.entries(missedKeys).sort(([, a], [, b]) => b - a);
-  return sorted.map(([key, count]) => `${chalk.red(key)}(${count})`).join(' ');
 }
 
 function displayTarget(target, mode) {
@@ -273,7 +272,9 @@ function updateInputDisplay(mode = 'letter') {
       if (key === '←' || key === 'left') return '←';
       if (key === '→' || key === 'right') return '→';
       if (key === '␣' || key === ' ') return '␣';
+      if (key === '⇥' || key === '\t') return '⇥';
       if (key === '⏎' || key === '\n' || key === '\r') return '⏎';
+      if (key === '⎋' || key === 'escape') return '⎋';
       if (key === '⏮' || key === 'audioPrev') return '⏮';
       if (key === '⏯' || key === 'audioPlay') return '⏯';
       if (key === '⏭' || key === 'audioNext') return '⏭';
@@ -431,54 +432,46 @@ function startGame(mode) {
     // Get the character to display
     let displayKey;
     if (mode === 'text') {
-      // Text mode - use raw character input
       displayKey = str;
     } else if (mode === 'letter') {
-      // Letter mode - handle special keys including arrows and whitespace
-      if (key.name === 'up') {
-        displayKey = '↑';
-      } else if (key.name === 'down') {
-        displayKey = '↓';
-      } else if (key.name === 'left') {
-        displayKey = '←';
-      } else if (key.name === 'right') {
-        displayKey = '→';
-      } else if (key.name === 'space') {
-        displayKey = '␣';
-      } else if (key.name === 'return' || key.name === 'enter') {
-        displayKey = '⏎';
-      } else if (key.name === 'audioPrev') {
-        displayKey = '⏮';
-      } else if (key.name === 'audioPlay') {
-        displayKey = '⏯';
-      } else if (key.name === 'audioNext') {
-        displayKey = '⏭';
-      } else if (key.name === 'audioMute') {
-        displayKey = '🔇';
-      } else if (key.name === 'audioVolDown') {
-        displayKey = '🔉';
-      } else if (key.name === 'audioVolUp') {
-        displayKey = '🔊';
-      } else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
+      // Letter mode - handle special keys
+      if (key.name === 'up') displayKey = '↑';
+      else if (key.name === 'down') displayKey = '↓';
+      else if (key.name === 'left') displayKey = '←';
+      else if (key.name === 'right') displayKey = '→';
+      else if (key.name === 'space') displayKey = '␣';
+      else if (key.name === 'tab') displayKey = '⇥';
+      else if (key.name === 'return' || key.name === 'enter') displayKey = '⏎';
+      else if (key.name === 'home') displayKey = '↖';
+      else if (key.name === 'end') displayKey = '↘';
+      else if (key.name === 'pageup') displayKey = '⇞';
+      else if (key.name === 'pagedown') displayKey = '⇟';
+      else if (key.name === 'escape') displayKey = '⎋';
+      else if (key.name === 'audioPrev') displayKey = '⏮';
+      else if (key.name === 'audioPlay') displayKey = '⏯';
+      else if (key.name === 'audioNext') displayKey = '⏭';
+      else if (key.name === 'audioMute') displayKey = '🔇';
+      else if (key.name === 'audioVolDown') displayKey = '🔉';
+      else if (key.name === 'audioVolUp') displayKey = '🔊';
+      else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
         displayKey = key.name.toUpperCase();
       } else {
         displayKey = str;
       }
     } else {
       // Letter trainer mode
-      if (key.name === 'audioPrev') {
-        displayKey = '⏮';
-      } else if (key.name === 'audioPlay') {
-        displayKey = '⏯';
-      } else if (key.name === 'audioNext') {
-        displayKey = '⏭';
-      } else if (key.name === 'audioMute') {
-        displayKey = '🔇';
-      } else if (key.name === 'audioVolDown') {
-        displayKey = '🔉';
-      } else if (key.name === 'audioVolUp') {
-        displayKey = '🔊';
-      } else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
+      if (key.name === 'audioPrev') displayKey = '⏮';
+      else if (key.name === 'audioPlay') displayKey = '⏯';
+      else if (key.name === 'audioNext') displayKey = '⏭';
+      else if (key.name === 'audioMute') displayKey = '🔇';
+      else if (key.name === 'audioVolDown') displayKey = '🔉';
+      else if (key.name === 'audioVolUp') displayKey = '🔊';
+      else if (key.name === 'escape') displayKey = '⎋';
+      else if (key.name === 'home') displayKey = '↖';
+      else if (key.name === 'end') displayKey = '↘';
+      else if (key.name === 'pageup') displayKey = '⇞';
+      else if (key.name === 'pagedown') displayKey = '⇟';
+      else if (key.name && key.name.startsWith('f') && !isNaN(key.name.slice(1)) && key.name.length > 1) {
         displayKey = key.name.toUpperCase();
       } else if (key.name === 'up') {
         displayKey = '↑';
@@ -626,20 +619,13 @@ function startLetterMode() {
   Object.keys(charsetOptions).forEach(key => {
     charsetOptions[key] = false;
   });
-  charsetOptions.lowercase = true;
+  charsetOptions.leftHandLowercase = true;
+  charsetOptions.rightHandLowercase = true;
   
   startGame('letter');
 }
 
 // Menu functions
-function showHeader() {
-  console.clear();
-  console.log(chalk.bold.cyan('╔══════════════════════════════════════════════╗'));
-  console.log(chalk.bold.cyan('║          CLI KEYBOARD TRAINER                ║'));
-  console.log(chalk.bold.cyan('╚══════════════════════════════════════════════╝'));
-  console.log();
-}
-
 function showMenu() {
   console.clear();
   console.log(chalk.cyan(`
@@ -757,8 +743,8 @@ function openSettingsMenu() {
       charsetOptions[settingKey] = !charsetOptions[settingKey];
 
       if (settingKey === 'crossShift' && charsetOptions.crossShift) {
-        charsetOptions.lowercase = true;
-        charsetOptions.uppercase = true;
+        charsetOptions.leftHandLowercase = true;
+        charsetOptions.rightHandLowercase = true;
       }
 
       renderMenu();
@@ -779,12 +765,29 @@ const MENU_OPTIONS = [
 // Add descriptions for settings
 function getSettingDescription(key) {
   const descriptions = {
-    lowercase: 'Basic lowercase letters (a-z)',
-    uppercase: 'Uppercase letters (A-Z) - Required for cross-shift',
-    crossShift: 'Enforce using opposite shift key for uppercase letters (automatically enables lowercase and uppercase)',
+    leftHandLowercase: 'Left hand lowercase letters (q w e r t a s d f g z x c v b)',
+    rightHandLowercase: 'Right hand lowercase letters (y u i o p h j k l n m)',
+    leftHandUppercase: 'Left hand uppercase letters (Q W E R T A S D F G Z X C V B)',
+    rightHandUppercase: 'Right hand uppercase letters (Y U I O P H J K L N M)',
+    leftHandNumbers: 'Left hand numbers (1 2 3 4 5)',
+    rightHandNumbers: 'Right hand numbers (6 7 8 9 0)',
+    curlies: 'Brackets and parentheses ( ) [ ] { } < >',
+    arrows: 'Arrow keys (↑ ↓ ← →)',
+    math: 'Mathematical operators (+ - * / % =)',
+    punctuation: 'Punctuation marks (. , ; : ! ?)',
+    quotes: 'Quote marks (" \' `)',
+    pathChars: 'Path characters (/ \\ _ | ~)',
+    symbols: 'Special symbols (@ # $ % ^ &)',
+    whitespace: 'Whitespace characters (Space, Tab, Enter)',
+    backspace: 'Backspace key (⌫)',
+    del: 'Delete key (⌦)',
+    homeend: 'Home and End navigation keys',
+    pageUpDown: 'Page Up and Page Down keys',
+    escape: 'Escape key',
     mediaKeys: 'Media control keys (Previous, Play/Pause, Next, Volume controls)',
     functionKeys: 'Include F1-F12 keys in training',
     shiftKeys: 'Include shift key practice',
+    crossShift: 'Enforce using opposite shift key for uppercase letters (automatically enables uppercase)'
   };
   return descriptions[key] || '';
 }
@@ -797,11 +800,12 @@ function updateLetterModeCharsets(level) {
   });
   
   // Always have lowercase enabled
-  charsetOptions.lowercase = true;
+  charsetOptions.leftHandLowercase = true;
+  charsetOptions.rightHandLowercase = true;
   
   // Add character sets based on level
-  if (level >= 2) charsetOptions.numbers = true;
-  if (level >= 3) charsetOptions.uppercase = true;
+  if (level >= 2) charsetOptions.leftHandNumbers = true;
+  if (level >= 3) charsetOptions.rightHandNumbers = true;
   if (level >= 4) charsetOptions.curlies = true;
   if (level >= 5) charsetOptions.arrows = true;
   if (level >= 6) charsetOptions.math = true;
