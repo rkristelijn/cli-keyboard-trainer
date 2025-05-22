@@ -72,7 +72,7 @@ let scoreWrong = 0;
 let totalKeystrokes = 0;
 let LEVEL = 0;
 let levelStatus = 0;
-let levelBump = 10;
+let levelBump = 2;
 let inputSequence = [];
 let currentTarget = [];
 let startTime = Date.now();
@@ -192,19 +192,51 @@ function displayTarget(target, mode) {
   if (mode === 'text') {
     console.log(chalk.yellow(`Current level: ${currentWordLength}-letter words`));
     console.log(chalk.yellow(`Sentence ${sentencesCompleted + 1}/${SENTENCES_PER_LEVEL}\n`));
-  } else if (mode === 'letter') {
-    // Show available characters for current level
+    
+    // Split long text into multiple lines if needed
+    const words = target.join('').split(' ');
+    const lines = [];
+    let currentLine = [];
+    let currentLength = 0;
+    
+    words.forEach(word => {
+      if (currentLength + word.length + 1 > 80) { // 80 chars per line
+        lines.push(currentLine.join(' '));
+        currentLine = [word];
+        currentLength = word.length;
+      } else {
+        currentLine.push(word);
+        currentLength += word.length + 1;
+      }
+    });
+    if (currentLine.length > 0) {
+      lines.push(currentLine.join(' '));
+    }
+
+    // Display each line of the target text
+    console.log(chalk.bold('Target:'));
+    lines.forEach((line, index) => {
+      console.log(`${chalk.gray(`${index + 1}:`)} ${line}`);
+    });
+    console.log(); // Empty line for separation
+    console.log(chalk.bold('Input:'));
+    // Print empty input lines matching target lines
+    lines.forEach((_, index) => {
+      console.log(`${chalk.gray(`${index + 1}:`)} `);
+    });
+  } else if (mode === 'letter-trainer') {
+    // Show available characters for current level in letter trainer mode
     const chars = getCharsetForLevel(LEVEL);
     console.log(chalk.yellow(`Level ${LEVEL + 1}: Available characters: ${chars.join(' ')}\n`));
-  } else if (charsetOptions.crossShift) {
-    console.log(chalk.yellow('Cross-shift mode enabled:'));
-    console.log(chalk.yellow('Use RIGHT SHIFT for: Q W E R T A S D F G Z X C V B'));
-    console.log(chalk.yellow('Use LEFT SHIFT for:  Y U I O P H J K L N M'));
-    console.log('--------------------------------------------------------------------------------------------------\n');
+    
+    // Show target and input lines
+    console.log(chalk.bold('Target: ') + target.join(' '));
+    console.log(chalk.bold('Input:  '));
+  } else {
+    // For letter mode
+    console.log(chalk.bold('Target: ') + target.join(' '));
+    console.log(chalk.bold('Input:  '));
   }
-
-  console.log(chalk.bold('Target: ') + (mode === 'text' ? target.join('') : target.join(' ')));
-  console.log(chalk.bold('Input:  '));
 }
 
 function resetGameState() {
@@ -214,7 +246,6 @@ function resetGameState() {
   totalKeystrokes = 0;
   inputSequence = [];
   sentencesCompleted = 0;
-  levelStatus = 0;
   LEVEL = 0;
   currentWordLength = 3;
   MISSED_KEYS = {};
@@ -247,63 +278,112 @@ function startNewRound(mode) {
     currentTarget = getRandomSequence(LEVEL, SEQUENCE_LENGTH);
   }
   
+  // Only reset input sequence, not level status
   inputSequence = [];
   displayTarget(currentTarget, mode);
 }
 
-// Add this function at the appropriate scope level (outside of any other function)
 function updateInputDisplay(mode = 'letter') {
-  const line = currentTarget.map((char, i) => {
-    const inputChar = inputSequence[i];
-    if (inputChar === undefined) {
-      return chalk.gray(char);
-    }
-
-    // For text mode, do direct character comparison
-    if (mode === 'text') {
-      return inputChar === char ? chalk.green(inputChar) : chalk.red(inputChar);
-    }
-
-    // For letter mode and letter trainer mode, normalize both input and target for comparison
-    const normalizeKey = (key) => {
-      // Normalize arrow keys in all modes
-      if (key === '↑' || key === 'up') return '↑';
-      if (key === '↓' || key === 'down') return '↓';
-      if (key === '←' || key === 'left') return '←';
-      if (key === '→' || key === 'right') return '→';
-      if (key === '␣' || key === ' ') return '␣';
-      if (key === '⇥' || key === '\t') return '⇥';
-      if (key === '⏎' || key === '\n' || key === '\r') return '⏎';
-      if (key === '⎋' || key === 'escape') return '⎋';
-      if (key === '⏮' || key === 'audioPrev') return '⏮';
-      if (key === '⏯' || key === 'audioPlay') return '⏯';
-      if (key === '⏭' || key === 'audioNext') return '⏭';
-      if (key === '🔇' || key === 'audioMute') return '🔇';
-      if (key === '🔉' || key === 'audioVolDown') return '🔉';
-      if (key === '🔊' || key === 'audioVolUp') return '🔊';
-      
-      // Handle function keys
-      if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1)) && key.length > 1) {
-        return key.toUpperCase();
-      }
-      
-      return key;
-    };
-
-    const normalizedInput = normalizeKey(inputChar);
-    const normalizedTarget = normalizeKey(char);
-    const isMatch = normalizedInput === normalizedTarget;
+  if (mode === 'text') {
+    // Split input into lines matching target format
+    const targetWords = currentTarget.join('').split(' ');
+    const inputWords = inputSequence.join('').split(' ');
+    const lines = [];
+    let currentLine = [];
+    let currentLength = 0;
     
-    return isMatch ? chalk.green(inputChar) : chalk.red(inputChar);
-  });
+    targetWords.forEach((word, index) => {
+      if (currentLength + word.length + 1 > 80) {
+        lines.push(currentLine);
+        currentLine = [index];
+        currentLength = word.length;
+      } else {
+        currentLine.push(index);
+        currentLength += word.length + 1;
+      }
+    });
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
 
-  // Clear the current input line and write the new one
-  readline.cursorTo(process.stdout, 0);
-  readline.moveCursor(process.stdout, 0, -1);
-  readline.clearLine(process.stdout, 0);
-  
-  const displayStr = mode === 'text' ? line.join('') : line.join(' ');
-  process.stdout.write(chalk.bold('Input:  ') + displayStr + '\n');
+    // Calculate how many lines to move up
+    const totalLines = lines.length;
+    readline.moveCursor(process.stdout, 0, -(totalLines));
+    
+    // Display each line of input
+    lines.forEach((lineWordIndices, lineNum) => {
+      readline.cursorTo(process.stdout, 0);
+      readline.clearLine(process.stdout, 0);
+      
+      let displayStr = chalk.gray(`${lineNum + 1}: `);
+      let currentPos = 0;
+      
+      lineWordIndices.forEach((wordIndex, i) => {
+        const targetWord = targetWords[wordIndex];
+        const inputWord = inputWords[wordIndex] || '';
+        const space = i > 0 ? ' ' : '';
+        
+        // Add each character with appropriate coloring
+        for (let j = 0; j < Math.max(targetWord.length, inputWord.length); j++) {
+          const targetChar = targetWord[j];
+          const inputChar = inputWord[j];
+          
+          if (inputChar === undefined) {
+            displayStr += chalk.gray(targetChar || '');
+          } else {
+            const displayChar = inputChar === ' ' ? '␣' : inputChar;
+            displayStr += (inputChar === targetChar) ? chalk.green(displayChar) : chalk.red(displayChar);
+          }
+        }
+        
+        // Add space between words
+        if (i < lineWordIndices.length - 1) {
+          // Only highlight the space green if the input word is fully typed and the next character is a space
+          const inputWordTyped = inputWords[wordIndex] !== undefined && inputWords[wordIndex].length === targetWords[wordIndex].length;
+          const nextInputCharIsSpace = inputWords[wordIndex + 1] !== undefined || (inputSequence.join('')[targetWords.slice(0, wordIndex + 1).join(' ').length] === ' ');
+          const shouldHighlightGreen = inputWordTyped && nextInputCharIsSpace;
+          const spaceChar = shouldHighlightGreen ? '␣' : ' ';
+          displayStr += shouldHighlightGreen ? chalk.green(spaceChar) : chalk.gray(spaceChar);
+        }
+      });
+      
+      process.stdout.write(displayStr + '\n');
+    });
+  } else {
+    // Original letter mode display logic
+    const line = currentTarget.map((char, i) => {
+      const inputChar = inputSequence[i];
+      if (inputChar === undefined) {
+        return chalk.gray(char);
+      }
+
+      const normalizeKey = (key) => {
+        if (key === '↑' || key === 'up') return '↑';
+        if (key === '↓' || key === 'down') return '↓';
+        if (key === '←' || key === 'left') return '←';
+        if (key === '→' || key === 'right') return '→';
+        if (key === '␣' || key === ' ') return '␣';
+        if (key === '⇥' || key === '\t') return '⇥';
+        if (key === '⏎' || key === '\n' || key === '\r') return '⏎';
+        if (key === '⎋' || key === 'escape') return '⎋';
+        if (key && typeof key === 'string' && key.toLowerCase().startsWith('f') && !isNaN(key.slice(1)) && key.length > 1) {
+          return key.toUpperCase();
+        }
+        return key;
+      };
+
+      const normalizedInput = normalizeKey(inputChar);
+      const normalizedTarget = normalizeKey(char);
+      const isMatch = normalizedInput === normalizedTarget;
+      
+      return isMatch ? chalk.green(inputChar) : chalk.red(inputChar);
+    });
+
+    readline.cursorTo(process.stdout, 0);
+    readline.moveCursor(process.stdout, 0, -1);
+    readline.clearLine(process.stdout, 0);
+    process.stdout.write(chalk.bold('Input:  ') + line.join(' ') + '\n');
+  }
 }
 
 // Add this function to save scores
@@ -401,6 +481,11 @@ function startGame(mode) {
     levelKeypresses[LEVEL] = 0;
   }
 
+  // Only initialize levelStatus if it's undefined
+  if (typeof levelStatus === 'undefined') {
+    levelStatus = 0;
+  }
+
   // Start first round with appropriate mode
   startNewRound(mode);
 
@@ -432,7 +517,7 @@ function startGame(mode) {
     // Get the character to display
     let displayKey;
     if (mode === 'text') {
-      displayKey = str;
+      displayKey = key.name === 'space' ? ' ' : str;
     } else if (mode === 'letter') {
       // Letter mode - handle special keys
       if (key.name === 'up') displayKey = '↑';
@@ -495,7 +580,6 @@ function startGame(mode) {
 
       if (isMatch) {
         scoreRight++;
-        levelStatus++;
       } else {
         scoreWrong++;
         MISSED_KEYS[targetChar] = (MISSED_KEYS[targetChar] || 0) + 1;
@@ -524,11 +608,15 @@ function startGame(mode) {
               levelKeypresses[currentWordLength] = 0;
             }
             console.log(chalk.bold.green(`\nLevel up! Now typing ${currentWordLength}-letter words`));
+
+            LEVEL++;
+            levelStatus = 0;
           }
           // Immediately start new sentence
           startNewRound(mode);
-        } else if (mode === 'letter') {
-          // Letter mode level up logic with automatic charset progression
+        } else {
+          // Both letter mode and letter trainer mode use the same level logic
+          levelStatus++;
           if (levelStatus >= levelBump) {
             // Mark end time for current level
             if (levelStartTimes[LEVEL]) {
@@ -547,25 +635,7 @@ function startGame(mode) {
             
             // Update character sets based on level
             updateLetterModeCharsets(LEVEL);
-          }
-          setTimeout(() => startNewRound(mode), 500);
-        } else {
-          // Letter trainer mode
-          if (levelStatus >= levelBump) {
-            // Mark end time for current level
-            if (levelStartTimes[LEVEL]) {
-              levelStartTimes[LEVEL].end = Date.now();
-            }
-            
-            // Initialize next level
-            LEVEL++;
-            levelStatus = 0;
-            if (!levelStartTimes[LEVEL]) {
-              levelStartTimes[LEVEL] = { start: Date.now(), end: null };
-            }
-            if (!levelKeypresses[LEVEL]) {
-              levelKeypresses[LEVEL] = 0;
-            }
+            console.log(chalk.bold.green(`\nLevel up! Now at level ${LEVEL + 1}`));
           }
           setTimeout(() => startNewRound(mode), 500);
         }
@@ -578,6 +648,8 @@ function startGame(mode) {
 
 function startLetterTrainer() {
   resetGameState();
+  // Initialize levelStatus to 0 only when starting a new trainer session
+  levelStatus = 0;
   console.clear();
   console.log(chalk.bold('Letter Trainer Mode\n'));
   console.log('Press Ctrl+C to return to menu, Ctrl+S for settings\n');
@@ -653,38 +725,42 @@ function showMenu() {
   MENU_OPTIONS.forEach((option, index) => {
     console.log(`${chalk.yellow(index + 1 + '.')} ${chalk.bold(option.label)} – ${option.description}`);
   });
-  
-  currentRl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
+  console.log(chalk.magenta('\nPress 1-4 to select a mode, or q to quit.'));
 
-  promptUser();
-}
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+  }
+  process.stdin.resume();
+  readline.emitKeypressEvents(process.stdin);
 
-function promptUser() {
-  currentRl.question(chalk.magenta('Your choice: '), (input) => {
-    const trimmed = input.trim().toLowerCase();
+  // Remove any previous listeners
+  if (currentKeypressHandler) {
+    process.stdin.removeListener('keypress', currentKeypressHandler);
+    currentKeypressHandler = null;
+  }
 
-    if (trimmed === 'q') {
+  currentKeypressHandler = (str, key) => {
+    if (key && key.name === 'q') {
       console.log(chalk.cyan('\nGoodbye!\n'));
-      currentRl.close();
+      process.stdin.removeListener('keypress', currentKeypressHandler);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
       process.exit(0);
     }
-
-    const choice = parseInt(trimmed);
-    if (!isNaN(choice) && choice >= 1 && choice <= MENU_OPTIONS.length) {
-      const selected = MENU_OPTIONS[choice - 1];
-      currentRl.close();
-      currentRl = null;
-      console.clear();
-      console.log(chalk.green(`\n> Starting "${selected.label}"...\n`));
-      selected.action();
-    } else {
-      console.log(chalk.red('\nInvalid choice. Try again.\n'));
-      promptUser();
+    if (key && !key.ctrl && !key.meta && key.name && /^[1-4]$/.test(key.name)) {
+      const choice = parseInt(key.name);
+      if (choice >= 1 && choice <= MENU_OPTIONS.length) {
+        const selected = MENU_OPTIONS[choice - 1];
+        process.stdin.removeListener('keypress', currentKeypressHandler);
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        console.clear();
+        console.log(chalk.green(`\n> Starting "${selected.label}"...\n`));
+        selected.action();
+      }
     }
-  });
+  };
+  process.stdin.on('keypress', currentKeypressHandler);
 }
 
 function openSettingsMenu() {
